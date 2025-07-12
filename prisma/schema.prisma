@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model carbon_log {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id      String?     @db.Uuid
+  delivery_id  String?     @db.Uuid
+  carbon_saved Float?
+  timestamp    DateTime?   @default(now()) @db.Timestamp(6)
+  deliveries   deliveries? @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users        users?      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model deliveries {
+  id            String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  pickup_point  String?
+  drop_point    String?
+  description   String?
+  item_weight   Float?
+  dimensions    String?
+  value         Float?
+  speed         String?
+  zone          String?
+  time_slot     String?
+  fragile       Boolean?     @default(false)
+  status        String?      @default("pending")
+  assigned_to   String?      @db.Uuid
+  bundle_id     String?      @db.Uuid
+  delivery_cost Float?
+  carbon_saved  Float?
+  created_at    DateTime?    @default(now()) @db.Timestamp(6)
+  carbon_log    carbon_log[]
+  users         users?       @relation(fields: [assigned_to], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  feedback      feedback[]
+  matches       matches[]
+  returns       returns[]
+}
+
+model feedback {
+  id                              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  delivery_id                     String?     @db.Uuid
+  from_user                       String?     @db.Uuid
+  to_user                         String?     @db.Uuid
+  rating                          Int?
+  comments                        String?
+  created_at                      DateTime?   @default(now()) @db.Timestamp(6)
+  deliveries                      deliveries? @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_feedback_from_userTousers users?      @relation("feedback_from_userTousers", fields: [from_user], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_feedback_to_userTousers   users?      @relation("feedback_to_userTousers", fields: [to_user], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model matches {
+  id          String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  route_id    String?     @db.Uuid
+  delivery_id String?     @db.Uuid
+  match_score Float?
+  accepted    Boolean?    @default(false)
+  created_at  DateTime?   @default(now()) @db.Timestamp(6)
+  deliveries  deliveries? @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  routes      routes?     @relation(fields: [route_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model returns {
+  id                                String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  delivery_id                       String?     @db.Uuid
+  requested_by                      String?     @db.Uuid
+  reason                            String?
+  status                            String?     @default("pending")
+  handled_by                        String?     @db.Uuid
+  created_at                        DateTime?   @default(now()) @db.Timestamp(6)
+  deliveries                        deliveries? @relation(fields: [delivery_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_returns_handled_byTousers   users?      @relation("returns_handled_byTousers", fields: [handled_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_returns_requested_byTousers users?      @relation("returns_requested_byTousers", fields: [requested_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model rewards {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id      String?   @db.Uuid
+  coins        Int?      @default(0)
+  badges       String[]
+  voucher_code String?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  users        users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model routes {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id         String?   @db.Uuid
+  start_location  String?
+  end_location    String?
+  via_points      String[]
+  route_radius_km Float?
+  start_time      DateTime? @db.Timestamp(6)
+  end_time        DateTime? @db.Timestamp(6)
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  matches         matches[]
+  users           users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model users {
+  id                                  String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  phone_number                        String?      @unique
+  aadhaar_verified                    Boolean?     @default(false)
+  license_url                         String?
+  address                             String?
+  selfie_url                          String?
+  trust_score                         Float?       @default(0)
+  verification_status                 String?      @default("pending")
+  rejection_reason                    String?
+  verified_by                         String?      @db.Uuid
+  created_at                          DateTime?    @default(now()) @db.Timestamp(6)
+  carbon_log                          carbon_log[]
+  deliveries                          deliveries[]
+  feedback_feedback_from_userTousers  feedback[]   @relation("feedback_from_userTousers")
+  feedback_feedback_to_userTousers    feedback[]   @relation("feedback_to_userTousers")
+  returns_returns_handled_byTousers   returns[]    @relation("returns_handled_byTousers")
+  returns_returns_requested_byTousers returns[]    @relation("returns_requested_byTousers")
+  rewards                             rewards[]
+  routes                              routes[]
+}
